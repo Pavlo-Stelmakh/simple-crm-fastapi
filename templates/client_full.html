@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Client Card</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+        <h1>Client Card</h1>
+
+        <nav>
+            <a href="/web">Home</a> |
+            <a href="/web/clients">Clients</a> |
+            <a href="/web/deals">Deals</a> |
+            <a href="/web/tasks">Tasks</a> |
+            <a href="/web/stats">Stats</a>
+        </nav>
+
+        <h2>Client info</h2>
+
+        <table>
+            <tr>
+                <th>ID</th>
+                <td>{{ client.id }}</td>
+            </tr>
+            <tr>
+                <th>Name</th>
+                <td>{{ client.name }}</td>
+            </tr>
+            <tr>
+                <th>Phone</th>
+                <td>{{ client.phone }}</td>
+            </tr>
+            <tr>
+                <th>Email</th>
+                <td>{{ client.email }}</td>
+            </tr>
+            <tr>
+                <th>Company</th>
+                <td>{{ client.company }}</td>
+            </tr>
+            <tr>
+                <th>Comment</th>
+                <td>{{ client.comment }}</td>
+            </tr>
+        </table>
+
+        <h2>Client deals</h2>
+
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Comment</th>
+            </tr>
+
+            {% for deal in deals %}
+            <tr>
+                <td>{{ deal.id }}</td>
+                <td>{{ deal.title }}</td>
+                <td>{{ deal.amount }}</td>
+                <td>{{ deal.status }}</td>
+                <td>{{ deal.comment }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h2>Client tasks</h2>
+
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Deal ID</th>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Due date</th>
+                <th>Done</th>
+            </tr>
+
+            {% for task in tasks %}
+            <tr>
+                <td>{{ task.id }}</td>
+                <td>{{ task.deal_id }}</td>
+                <td>{{ task.title }}</td>
+                <td>{{ task.description }}</td>
+                <td>{{ task.due_date }}</td>
+                <td>{{ task.is_done }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <p>
+            <a href="/web/clients">Back to clients</a>
+        </p>
+    </div>
+</body>
+</html>

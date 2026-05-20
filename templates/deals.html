@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRM Deals</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+        <h1>Deals</h1>
+
+        <nav>
+            <a href="/web">Home</a> |
+            <a href="/web/clients">Clients</a> |
+            <a href="/web/deals">Deals</a> |
+            <a href="/web/tasks">Tasks</a> |
+            <a href="/web/stats">Stats</a>
+        </nav>
+
+    <h2>Add deal</h2>
+
+    <form method="post" action="/web/deals/add">
+        <p>
+            <select name="client_id" required>
+                <option value="">Select client</option>
+
+                {% for client in clients %}
+                <option value="{{ client.id }}">
+                    {{ client.name }} — {{ client.company }}
+                </option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <input type="text" name="title" placeholder="Deal title" required>
+        </p>
+
+        <p>
+            <input type="number" step="0.01" name="amount" placeholder="Amount">
+        </p>
+
+        <p>
+            <select name="status">
+                <option value="new">new</option>
+                <option value="in_progress">in_progress</option>
+                <option value="won">won</option>
+                <option value="lost">lost</option>
+            </select>
+        </p>
+
+        <p>
+            <input type="text" name="comment" placeholder="Comment">
+        </p>
+
+        <button type="submit">Add deal</button>
+    </form>
+
+    <h2>Deals list</h2>
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>ID</th>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Comment</th>
+            <th>Action</th>
+        </tr>
+
+        {% for deal in deals %}
+        <tr>
+            <td>{{ deal.id }}</td>
+            <td>{{ deal.client_name }}</td>
+            <td>{{ deal.title }}</td>
+            <td>{{ deal.amount }}</td>
+            <td>{{ deal.status }}</td>
+            <td>{{ deal.comment }}</td>
+            <td>
+                <a href="/web/deals/{{ deal.id }}/edit">Edit</a>
+
+                <form method="post" action="/web/deals/{{ deal.id }}/delete">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+</body>
+</html>

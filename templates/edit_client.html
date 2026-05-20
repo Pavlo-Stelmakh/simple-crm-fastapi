@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Client</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head><link
+<body>
+    <h1>Edit Client</h1>
+
+    <form method="post" action="/web/clients/{{ client.id }}/edit">
+        <p>
+            <input type="text" name="name" value="{{ client.name }}" required>
+        </p>
+        <p>
+            <input type="text" name="phone" value="{{ client.phone }}">
+        </p>
+        <p>
+            <input type="email" name="email" value="{{ client.email }}">
+        </p>
+        <p>
+            <input type="text" name="company" value="{{ client.company }}">
+        </p>
+        <p>
+            <input type="text" name="comment" value="{{ client.comment }}">
+        </p>
+
+        <button type="submit">Save</button>
+    </form>
+
+    <p>
+        <a href="/web/clients">Back to clients</a>
+    </p>
+</body>
+</html>

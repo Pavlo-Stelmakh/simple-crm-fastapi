@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRM Clients</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+        <h1>Clients</h1>
+
+        <nav>
+            <a href="/web">Home</a> |
+            <a href="/web/clients">Clients</a> |
+            <a href="/web/deals">Deals</a> |
+            <a href="/web/tasks">Tasks</a> |
+            <a href="/web/stats">Stats</a>
+        </nav>
+
+
+    <h2>Search clients</h2>
+
+    <form method="get" action="/web/clients">
+        <input type="text" name="query" placeholder="Search by name, phone, email, company" value="{{ query }}">
+        <button type="submit">Search</button>
+        <a href="/web/clients">Reset</a>
+    </form>
+        
+    <h2>Add client</h2>
+
+    <form method="post" action="/web/clients/add">
+        <p>
+            <input type="text" name="name" placeholder="Name" required>
+        </p>
+        <p>
+            <input type="text" name="phone" placeholder="Phone">
+        </p>
+        <p>
+            <input type="email" name="email" placeholder="Email">
+        </p>
+        <p>
+            <input type="text" name="company" placeholder="Company">
+        </p>
+        <p>
+            <input type="text" name="comment" placeholder="Comment">
+        </p>
+        <button type="submit">Add client</button>
+    </form>
+
+    <h2>Clients list</h2>
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Company</th>
+            <th>Comment</th>
+            <th>Action</th>
+        </tr>
+
+        {% for client in clients %}
+        <tr>
+            <td>{{ client.id }}</td>
+            <td>{{ client.name }}</td>
+            <td>{{ client.phone }}</td>
+            <td>{{ client.email }}</td>
+            <td>{{ client.company }}</td>
+            <td>{{ client.comment }}</td>
+            <td>
+                <a href="/web/clients/{{ client.id }}/full">Card</a>
+    |           <a href="/web/clients/{{ client.id }}/edit">Edit</a>
+                <form method="post" action="/web/clients/{{ client.id }}/delete">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+  </div>
+</body>
+</html>

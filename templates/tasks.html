@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRM Tasks</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+
+        <h1>Tasks</h1>
+
+        <nav>
+            <a href="/web">Home</a> |
+            <a href="/web/clients">Clients</a> |
+            <a href="/web/deals">Deals</a> |
+            <a href="/web/tasks">Tasks</a> |
+            <a href="/web/stats">Stats</a>
+        </nav>
+
+    <h2>Add task</h2>
+
+    <form method="post" action="/web/tasks/add">
+        <p>
+            <select name="client_id" required>
+                <option value="">Select client</option>
+
+                {% for client in clients %}
+                <option value="{{ client.id }}">
+                    {{ client.name }} — {{ client.company }}
+                </option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <select name="deal_id">
+                <option value="">No deal</option>
+
+                {% for deal in deals %}
+                <option value="{{ deal.id }}">
+                    {{ deal.title }}
+                </option>
+                {% endfor %}
+            </select>
+        </p>
+
+        <p>
+            <input type="text" name="title" placeholder="Task title" required>
+        </p>
+
+        <p>
+            <input type="text" name="description" placeholder="Description">
+        </p>
+
+        <p>
+            <input type="date" name="due_date">
+        </p>
+
+        <p>
+            <label>
+                <input type="checkbox" name="is_done" value="1">
+                Done
+            </label>
+        </p>
+
+        <button type="submit">Add task</button>
+    </form>
+
+    <h2>Tasks list</h2>
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>ID</th>
+            <th>Client</th>
+            <th>Deal</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Due date</th>
+            <th>Done</th>
+            <th>Action</th>
+        </tr>
+
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.id }}</td>
+            <td>{{ task.client_name }}</td>
+            <td>{{ task.deal_title }}</td>
+            <td>{{ task.title }}</td>
+            <td>{{ task.description }}</td>
+            <td>{{ task.due_date }}</td>
+            <td>{{ task.is_done }}</td>
+            <td>
+                {% if task.is_done == 0 %}
+                <form method="post" action="/web/tasks/{{ task.id }}/done">
+                    <button type="submit">Done</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/web/tasks/{{ task.id }}/delete">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    </div>
+</body>
+</html>

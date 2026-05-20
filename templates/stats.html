@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CRM Stats</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="page">
+        <h1>CRM Stats</h1>
+
+        <nav>
+            <a href="/web">Home</a> |
+            <a href="/web/clients">Clients</a> |
+            <a href="/web/deals">Deals</a> |
+            <a href="/web/tasks">Tasks</a> |
+            <a href="/web/stats">Stats</a>
+        </nav>
+
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Metric</th>
+            <th>Value</th>
+        </tr>
+        <tr>
+            <td>Clients count</td>
+            <td>{{ stats.clients_count }}</td>
+        </tr>
+        <tr>
+            <td>Deals count</td>
+            <td>{{ stats.deals_count }}</td>
+        </tr>
+        <tr>
+            <td>Tasks count</td>
+            <td>{{ stats.tasks_count }}</td>
+        </tr>
+        <tr>
+            <td>Total deals amount</td>
+            <td>{{ stats.total_deals_amount }}</td>
+        </tr>
+        <tr>
+            <td>Won deals amount</td>
+            <td>{{ stats.won_deals_amount }}</td>
+        </tr>
+        <tr>
+            <td>Open tasks count</td>
+            <td>{{ stats.open_tasks_count }}</td>
+        </tr>
+    </table>
+    </div>
+</body>
+</html>
