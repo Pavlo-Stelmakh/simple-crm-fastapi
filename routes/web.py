@@ -140,10 +140,26 @@ def web_update_client(
         status_code=303
     )
 
-
 @router.post("/web/clients/{client_id}/delete")
 def web_delete_client(client_id: int):
     connection = get_db_connection()
+
+    deals_count = connection.execute("""
+        SELECT COUNT(*) AS count FROM deals
+        WHERE client_id = ?
+    """, (client_id,)).fetchone()["count"]
+
+    tasks_count = connection.execute("""
+        SELECT COUNT(*) AS count FROM tasks
+        WHERE client_id = ?
+    """, (client_id,)).fetchone()["count"]
+
+    if deals_count > 0 or tasks_count > 0:
+        connection.close()
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete client with existing deals or tasks"
+        )
 
     connection.execute("""
         DELETE FROM clients WHERE id = ?
@@ -156,7 +172,6 @@ def web_delete_client(client_id: int):
         url="/web/clients",
         status_code=303
     )
-
 
 @router.get("/web/clients/{client_id}/full")
 def web_full_client_card(request: Request, client_id: int):
