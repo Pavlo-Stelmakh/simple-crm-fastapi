@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from auth import is_logged_in, require_login
 from database import get_db_connection
 
 
@@ -9,9 +10,70 @@ router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
 
+@router.get("/login")
+def login_page(request: Request):
+    if is_logged_in(request):
+        return RedirectResponse(
+            url="/web",
+            status_code=303
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "error": None
+        }
+    )
+
+
+@router.post("/login")
+def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    if username == "admin" and password == "admin123":
+        response = RedirectResponse(
+            url="/web",
+            status_code=303
+        )
+
+        response.set_cookie(
+            key="crm_auth",
+            value="yes",
+            httponly=True
+        )
+
+        return response
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={
+            "error": "Invalid username or password"
+        },
+        status_code=400
+    )
+
+
+@router.get("/logout")
+def logout():
+    response = RedirectResponse(
+        url="/login",
+        status_code=303
+    )
+
+    response.delete_cookie("crm_auth")
+
+    return response
 
 @router.get("/web")
 def web_home(request: Request):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     return templates.TemplateResponse(
         request=request,
         name="home.html",
@@ -20,6 +82,9 @@ def web_home(request: Request):
 
 @router.get("/web/clients")
 def web_clients(request: Request, query: str = ""):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     if query:
@@ -58,12 +123,17 @@ def web_clients(request: Request, query: str = ""):
 
 @router.post("/web/clients/add")
 def web_add_client(
+    request: Request,
     name: str = Form(...),
     phone: str = Form(""),
     email: str = Form(""),
     company: str = Form(""),
     comment: str = Form("")
 ):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -88,6 +158,9 @@ def web_add_client(
 
 @router.get("/web/clients/{client_id}/edit")
 def web_edit_client_page(request: Request, client_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     client = connection.execute("""
@@ -110,6 +183,7 @@ def web_edit_client_page(request: Request, client_id: int):
 
 @router.post("/web/clients/{client_id}/edit")
 def web_update_client(
+    request: Request,
     client_id: int,
     name: str = Form(...),
     phone: str = Form(""),
@@ -117,6 +191,10 @@ def web_update_client(
     company: str = Form(""),
     comment: str = Form("")
 ):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -140,8 +218,37 @@ def web_update_client(
         status_code=303
     )
 
+@router.get("/web/clients/{client_id}/delete")
+def web_confirm_delete_client(request: Request, client_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
+    connection = get_db_connection()
+
+    client = connection.execute("""
+        SELECT * FROM clients WHERE id = ?
+    """, (client_id,)).fetchone()
+
+    connection.close()
+
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="confirm_delete_client.html",
+        context={
+            "client": dict(client)
+        }
+    )
+
 @router.post("/web/clients/{client_id}/delete")
 def web_delete_client(request: Request, client_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     deals_count = connection.execute("""
@@ -182,6 +289,9 @@ def web_delete_client(request: Request, client_id: int):
     )
 @router.get("/web/clients/{client_id}/full")
 def web_full_client_card(request: Request, client_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     client = connection.execute("""
@@ -214,6 +324,9 @@ def web_full_client_card(request: Request, client_id: int):
 
 @router.get("/web/deals")
 def web_deals(request: Request, status: str = ""):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     clients = connection.execute("""
@@ -263,12 +376,17 @@ def web_deals(request: Request, status: str = ""):
 
 @router.post("/web/deals/add")
 def web_add_deal(
+    request: Request,
     client_id: int = Form(...),
     title: str = Form(...),
     amount: float = Form(0),
     status: str = Form("new"),
     comment: str = Form("")
 ):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     client = connection.execute("""
@@ -301,6 +419,9 @@ def web_add_deal(
 
 @router.get("/web/deals/{deal_id}/edit")
 def web_edit_deal_page(request: Request, deal_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     deal = connection.execute("""
@@ -328,6 +449,7 @@ def web_edit_deal_page(request: Request, deal_id: int):
 
 @router.post("/web/deals/{deal_id}/edit")
 def web_update_deal(
+    request: Request,
     deal_id: int,
     client_id: int = Form(...),
     title: str = Form(...),
@@ -335,6 +457,10 @@ def web_update_deal(
     status: str = Form("new"),
     comment: str = Form("")
 ):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -360,7 +486,13 @@ def web_update_deal(
 
 
 @router.post("/web/deals/{deal_id}/delete")
-def web_delete_deal(deal_id: int):
+def web_delete_deal(
+    request: Request,
+    deal_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -377,6 +509,9 @@ def web_delete_deal(deal_id: int):
 
 @router.get("/web/tasks")
 def web_tasks(request: Request):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     clients = connection.execute("""
@@ -418,6 +553,7 @@ def web_tasks(request: Request):
 
 @router.post("/web/tasks/add")
 def web_add_task(
+    request: Request,
     client_id: int = Form(...),
     deal_id: str = Form(""),
     title: str = Form(...),
@@ -425,6 +561,10 @@ def web_add_task(
     due_date: str = Form(""),
     is_done: str | None = Form(None)
 ):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     final_deal_id = None
@@ -455,7 +595,13 @@ def web_add_task(
 
 
 @router.post("/web/tasks/{task_id}/done")
-def web_mark_task_done(task_id: int):
+def web_mark_task_done(
+    request: Request,
+    task_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -474,7 +620,13 @@ def web_mark_task_done(task_id: int):
 
 
 @router.post("/web/tasks/{task_id}/delete")
-def web_delete_task(task_id: int):
+def web_delete_task(
+    request: Request,
+    task_id: int):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
+
     connection = get_db_connection()
 
     connection.execute("""
@@ -492,6 +644,9 @@ def web_delete_task(task_id: int):
 
 @router.get("/web/stats")
 def web_stats(request: Request):
+    redirect = require_login(request)
+    if redirect:
+        return redirect
     connection = get_db_connection()
 
     clients_count = connection.execute("""
