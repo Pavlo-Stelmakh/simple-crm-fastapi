@@ -64,6 +64,15 @@ CRM_PASSWORD=your_secure_password
 http://127.0.0.1:8000/web
 ```
 
+## Run project
+
+Start the FastAPI server:
+
+```bash
+
+python -m uvicorn main:app --reload
+
+
 ## API documentation
 
 FastAPI automatically generates API documentation.
