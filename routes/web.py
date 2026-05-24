@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from auth import is_logged_in, require_login
+from auth import is_logged_in, require_login, check_credentials
 from database import get_db_connection
 
 
@@ -33,7 +33,7 @@ def login(
     username: str = Form(...),
     password: str = Form(...)
 ):
-    if username == "admin" and password == "admin123":
+    if check_credentials(username, password):
         response = RedirectResponse(
             url="/web",
             status_code=303
