@@ -52,16 +52,13 @@ Install project dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+## Environment variables
 
-## Run project
+Create a `.env` file in the project root based on `.env.example`:
 
-Start the FastAPI server:
-
-```bash
-python -m uvicorn main:app --reload
-```
-
-Then open the CRM web interface in browser:
+```text
+CRM_USERNAME=admin
+CRM_PASSWORD=your_secure_password
 
 ```text
 http://127.0.0.1:8000/web
