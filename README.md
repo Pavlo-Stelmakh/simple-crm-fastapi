@@ -71,11 +71,24 @@ http://127.0.0.1:8000/web
 
 ## Run project
 
-Start the FastAPI server:
+Start the FastAPI server for development:
 
 ```bash
-
 python -m uvicorn main:app --reload
+```
+
+Or start the project using `run.py`:
+
+```bash
+python run.py
+```
+
+Then open the CRM web interface in browser:
+
+```text
+http://127.0.0.1:8000/web
+```
+
 
 
 ## API documentation
