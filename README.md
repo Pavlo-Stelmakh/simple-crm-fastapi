@@ -19,12 +19,14 @@ Simple CRM system built with FastAPI, SQLite, HTML, CSS and Jinja2 templates.
 ```text
 PyCharmMiscProject
 ├── main.py
+├── auth.py
 ├── database.py
 ├── models.py
 ├── crm.db
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
+├── .env.example
 ├── routes
 │   ├── __init__.py
 │   ├── clients.py
@@ -34,8 +36,11 @@ PyCharmMiscProject
 │   └── web.py
 ├── templates
 │   ├── home.html
+│   ├── login.html
 │   ├── clients.html
 │   ├── client_full.html
+│   ├── confirm_delete_client.html
+│   ├── error.html
 │   ├── deals.html
 │   ├── tasks.html
 │   ├── stats.html
