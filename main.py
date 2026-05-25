@@ -11,7 +11,11 @@ from routes.tasks import router as tasks_router
 from routes.stats import router as stats_router
 from routes.web import router as web_router
 
-app = FastAPI()
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None
+)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
