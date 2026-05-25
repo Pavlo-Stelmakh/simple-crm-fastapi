@@ -1,10 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from auth import require_api_login
 
 from database import get_db_connection
 from models import Client
 
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_api_login)]
+)
 
 
 @router.post("/clients")

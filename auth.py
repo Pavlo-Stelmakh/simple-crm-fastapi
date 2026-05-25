@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import Request
+from fastapi import Request, HTTPException
 from fastapi.responses import RedirectResponse
 
 
@@ -27,3 +27,11 @@ def require_login(request: Request):
         )
 
     return None
+
+
+def require_api_login(request: Request):
+    if not is_logged_in(request):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required"
+        )
