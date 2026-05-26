@@ -53,6 +53,21 @@ PyCharmMiscProject
     └── style.css
 ```
 
+## Live Demo
+
+The CRM is deployed on Render:
+
+```text
+https://simple-crm-fastapi.onrender.com
+```
+Login page:
+
+```text
+https://simple-crm-fastapi.onrender.com/login
+```
+Demo credentials are configured via Render environment variables.
+
+
 ## Installation
 
 Install project dependencies:
