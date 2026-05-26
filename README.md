@@ -69,6 +69,27 @@ CRM_PASSWORD=your_secure_password
 http://127.0.0.1:8000/web
 ```
 
+## Production environment variables
+
+When deploying the project to hosting, set these environment variables in the hosting dashboard:
+
+```text
+CRM_USERNAME=admin
+CRM_PASSWORD=your_secure_password
+PORT=8000
+```
+
+Description:
+
+```text
+CRM_USERNAME - login for CRM access
+CRM_PASSWORD - password for CRM access
+PORT - server port provided by the hosting platform
+```
+
+For local development, use the `.env` file.
+For production hosting, set variables directly in the hosting service settings.
+
 ## Run project
 
 Start the FastAPI server for development:
