@@ -1,15 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.templating import Jinja2Templates
 
 from database import get_db_connection
 
 
 router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/stats")
-def get_stats():
+@router.get("/web/stats")
+def stats_page(request: Request):
     connection = get_db_connection()
     cursor = connection.cursor()
+
     cursor.execute("""
         SELECT COUNT(*) AS count FROM clients
     """)
@@ -45,11 +48,15 @@ def get_stats():
     cursor.close()
     connection.close()
 
-    return {
-        "clients_count": clients_count,
-        "deals_count": deals_count,
-        "tasks_count": tasks_count,
-        "total_deals_amount": total_deals_amount or 0,
-        "won_deals_amount": won_deals_amount or 0,
-        "open_tasks_count": open_tasks_count,
-    }
+    return templates.TemplateResponse(
+        request=request,
+        name="stats.html",
+        context={
+            "clients_count": clients_count,
+            "deals_count": deals_count,
+            "tasks_count": tasks_count,
+            "total_deals_amount": total_deals_amount or 0,
+            "won_deals_amount": won_deals_amount or 0,
+            "open_tasks_count": open_tasks_count,
+        },
+    )
