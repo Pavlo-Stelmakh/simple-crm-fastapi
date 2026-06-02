@@ -1,59 +1,224 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 
-from auth import require_api_login
 from database import get_db_connection
 
-
-router = APIRouter(
-    dependencies=[Depends(require_api_login)]
-)
+router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/stats")
-def get_stats():
+@router.get("/web/tasks")
+def tasks_page(request: Request):
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    cursor.execute("""
-        SELECT COUNT(*) AS count FROM clients
-    """)
-    clients_count = cursor.fetchone()["count"]
+    cursor.execute(
+        """
+        SELECT
+            tasks.*,
+            clients.name AS client_name,
+            deals.title AS deal_title
+        FROM tasks
+        JOIN clients ON tasks.client_id = clients.id
+        LEFT JOIN deals ON tasks.deal_id = deals.id
+        ORDER BY tasks.id DESC
+        """
+    )
+    tasks = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT COUNT(*) AS count FROM deals
-    """)
-    deals_count = cursor.fetchone()["count"]
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
 
-    cursor.execute("""
-        SELECT COUNT(*) AS count FROM tasks
-    """)
-    tasks_count = cursor.fetchone()["count"]
-
-    cursor.execute("""
-        SELECT SUM(amount) AS total FROM deals
-    """)
-    total_deals_amount = cursor.fetchone()["total"]
-
-    cursor.execute("""
-        SELECT SUM(amount) AS total FROM deals
-        WHERE status = 'won'
-    """)
-    won_deals_amount = cursor.fetchone()["total"]
-
-    cursor.execute("""
-        SELECT COUNT(*) AS count FROM tasks
-        WHERE is_done = 0
-    """)
-    open_tasks_count = cursor.fetchone()["count"]
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        ORDER BY title
+        """
+    )
+    deals = cursor.fetchall()
 
     cursor.close()
     connection.close()
 
-    return {
-        "clients_count": clients_count,
-        "deals_count": deals_count,
-        "tasks_count": tasks_count,
-        "total_deals_amount": total_deals_amount or 0,
-        "won_deals_amount": won_deals_amount or 0,
-        "open_tasks_count": open_tasks_count,
-    }
+    return templates.TemplateResponse(
+        request=request,
+        name="tasks.html",
+        context={
+            "tasks": tasks,
+            "clients": clients,
+            "deals": deals,
+        },
+    )
+
+
+@router.post("/web/tasks")
+def create_task(
+    client_id: int = Form(...),
+    deal_id: str = Form(""),
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    deal_id_value = int(deal_id) if deal_id else None
+
+    cursor.execute(
+        """
+        INSERT INTO tasks (client_id, deal_id, title, description, due_date, is_done)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (client_id, deal_id_value, title, description, due_date, 0),
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return RedirectResponse(url="/web/tasks", status_code=303)
+
+
+@router.get("/web/tasks/{task_id}/edit")
+def edit_task_page(request: Request, task_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM tasks
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
+    task = cursor.fetchone()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        ORDER BY title
+        """
+    )
+    deals = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="edit_task.html",
+        context={
+            "task": task,
+            "clients": clients,
+            "deals": deals,
+        },
+    )
+
+
+@router.post("/web/tasks/{task_id}/edit")
+def update_task(
+    task_id: int,
+    client_id: int = Form(...),
+    deal_id: str = Form(""),
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+    is_done: str = Form("0"),
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    deal_id_value = int(deal_id) if deal_id else None
+    is_done_value = 1 if is_done == "1" else 0
+
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET client_id = %s,
+            deal_id = %s,
+            title = %s,
+            description = %s,
+            due_date = %s,
+            is_done = %s
+        WHERE id = %s
+        """,
+        (
+            client_id,
+            deal_id_value,
+            title,
+            description,
+            due_date,
+            is_done_value,
+            task_id,
+        ),
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return RedirectResponse(url="/web/tasks", status_code=303)
+
+
+@router.post("/web/tasks/{task_id}/done")
+def mark_task_done(task_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET is_done = 1
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return RedirectResponse(url="/web/tasks", status_code=303)
+
+
+@router.post("/web/tasks/{task_id}/delete")
+def delete_task(task_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM tasks
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return RedirectResponse(url="/web/tasks", status_code=303)
