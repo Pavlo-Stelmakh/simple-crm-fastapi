@@ -36,9 +36,9 @@ def deals_page(request: Request):
     connection.close()
 
     return templates.TemplateResponse(
-        "deals.html",
-        {
-            "request": request,
+        request=request,
+        name="deals.html",
+        context={
             "deals": deals,
             "clients": clients,
         },
@@ -103,9 +103,9 @@ def deal_detail_page(request: Request, deal_id: int):
     connection.close()
 
     return templates.TemplateResponse(
-        "deal_detail.html",
-        {
-            "request": request,
+        request=request,
+        name="deal_detail.html",
+        context={
             "deal": deal,
             "tasks": tasks,
         },
@@ -140,9 +140,9 @@ def edit_deal_page(request: Request, deal_id: int):
     connection.close()
 
     return templates.TemplateResponse(
-        "edit_deal.html",
-        {
-            "request": request,
+        request=request,
+        name="edit_deal.html",
+        context={
             "deal": deal,
             "clients": clients,
         },

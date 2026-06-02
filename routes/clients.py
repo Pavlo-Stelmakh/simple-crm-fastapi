@@ -46,9 +46,9 @@ def clients_page(request: Request, search: str = ""):
     connection.close()
 
     return templates.TemplateResponse(
-        "clients.html",
-        {
-            "request": request,
+        request=request,
+        name="clients.html",
+        context={
             "clients": clients,
             "search": search,
         },
@@ -123,9 +123,9 @@ def client_detail_page(request: Request, client_id: int):
     connection.close()
 
     return templates.TemplateResponse(
-        "client_detail.html",
-        {
-            "request": request,
+        request=request,
+        name="client_detail.html",
+        context={
             "client": client,
             "deals": deals,
             "tasks": tasks,
@@ -152,9 +152,9 @@ def edit_client_page(request: Request, client_id: int):
     connection.close()
 
     return templates.TemplateResponse(
-        "edit_client.html",
-        {
-            "request": request,
+        request=request,
+        name="edit_client.html",
+        context={
             "client": client,
         },
     )
