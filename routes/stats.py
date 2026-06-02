@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from auth import require_api_login
 
+from auth import require_api_login
 from database import get_db_connection
 
 
@@ -12,33 +12,41 @@ router = APIRouter(
 @router.get("/stats")
 def get_stats():
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    clients_count = connection.execute("""
+    cursor.execute("""
         SELECT COUNT(*) AS count FROM clients
-    """).fetchone()["count"]
+    """)
+    clients_count = cursor.fetchone()["count"]
 
-    deals_count = connection.execute("""
+    cursor.execute("""
         SELECT COUNT(*) AS count FROM deals
-    """).fetchone()["count"]
+    """)
+    deals_count = cursor.fetchone()["count"]
 
-    tasks_count = connection.execute("""
+    cursor.execute("""
         SELECT COUNT(*) AS count FROM tasks
-    """).fetchone()["count"]
+    """)
+    tasks_count = cursor.fetchone()["count"]
 
-    total_deals_amount = connection.execute("""
+    cursor.execute("""
         SELECT SUM(amount) AS total FROM deals
-    """).fetchone()["total"]
+    """)
+    total_deals_amount = cursor.fetchone()["total"]
 
-    won_deals_amount = connection.execute("""
+    cursor.execute("""
         SELECT SUM(amount) AS total FROM deals
         WHERE status = 'won'
-    """).fetchone()["total"]
+    """)
+    won_deals_amount = cursor.fetchone()["total"]
 
-    open_tasks_count = connection.execute("""
+    cursor.execute("""
         SELECT COUNT(*) AS count FROM tasks
         WHERE is_done = 0
-    """).fetchone()["count"]
+    """)
+    open_tasks_count = cursor.fetchone()["count"]
 
+    cursor.close()
     connection.close()
 
     return {
@@ -47,5 +55,5 @@ def get_stats():
         "tasks_count": tasks_count,
         "total_deals_amount": total_deals_amount or 0,
         "won_deals_amount": won_deals_amount or 0,
-        "open_tasks_count": open_tasks_count
+        "open_tasks_count": open_tasks_count,
     }

@@ -1,18 +1,33 @@
-import sqlite3
+import os
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def get_db_connection():
-    connection = sqlite3.connect("crm.db")
-    connection.row_factory = sqlite3.Row
+    database_url = os.getenv("DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is not set")
+
+    connection = psycopg2.connect(
+        database_url,
+        cursor_factory=RealDictCursor
+    )
+
     return connection
 
 
 def create_clients_table():
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    connection.execute("""
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             phone TEXT,
             email TEXT,
@@ -22,15 +37,17 @@ def create_clients_table():
     """)
 
     connection.commit()
+    cursor.close()
     connection.close()
 
 
 def create_deals_table():
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    connection.execute("""
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS deals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             client_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             amount REAL,
@@ -41,15 +58,17 @@ def create_deals_table():
     """)
 
     connection.commit()
+    cursor.close()
     connection.close()
 
 
 def create_tasks_table():
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    connection.execute("""
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             client_id INTEGER NOT NULL,
             deal_id INTEGER,
             title TEXT NOT NULL,
@@ -62,6 +81,7 @@ def create_tasks_table():
     """)
 
     connection.commit()
+    cursor.close()
     connection.close()
 
 

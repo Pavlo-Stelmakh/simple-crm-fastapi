@@ -1,165 +1,224 @@
-from fastapi import APIRouter, HTTPException, Depends
-from auth import require_api_login
-
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from database import get_db_connection
-from models import Task
+
+router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
-router = APIRouter(
-    dependencies=[Depends(require_api_login)]
-)
-
-
-@router.post("/tasks")
-def create_task(task: Task):
+@router.get("/web/tasks")
+def tasks_page(request: Request):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (task.client_id,)).fetchone()
+    cursor.execute(
+        """
+        SELECT
+            tasks.*,
+            clients.name AS client_name,
+            deals.title AS deal_title
+        FROM tasks
+        JOIN clients ON tasks.client_id = clients.id
+        LEFT JOIN deals ON tasks.deal_id = deals.id
+        ORDER BY tasks.id DESC
+        """
+    )
+    tasks = cursor.fetchall()
 
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
 
-    if task.deal_id is not None:
-        deal = connection.execute("""
-            SELECT * FROM deals WHERE id = ?
-        """, (task.deal_id,)).fetchone()
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        ORDER BY title
+        """
+    )
+    deals = cursor.fetchall()
 
-        if deal is None:
-            connection.close()
-            raise HTTPException(status_code=404, detail="Deal not found")
+    cursor.close()
+    connection.close()
 
-    cursor = connection.execute("""
+    return templates.TemplateResponse(
+        "tasks.html",
+        {
+            "request": request,
+            "tasks": tasks,
+            "clients": clients,
+            "deals": deals,
+        },
+    )
+
+
+@router.post("/web/tasks")
+def create_task(
+    client_id: int = Form(...),
+    deal_id: str = Form(""),
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    deal_id_value = int(deal_id) if deal_id else None
+
+    cursor.execute(
+        """
         INSERT INTO tasks (client_id, deal_id, title, description, due_date, is_done)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        task.client_id,
-        task.deal_id,
-        task.title,
-        task.description,
-        task.due_date,
-        int(task.is_done)
-    ))
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (client_id, deal_id_value, title, description, due_date, 0),
+    )
 
     connection.commit()
 
-    new_task_id = cursor.lastrowid
-
-    new_task = connection.execute("""
-        SELECT * FROM tasks WHERE id = ?
-    """, (new_task_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(new_task)
+    return RedirectResponse(url="/web/tasks", status_code=303)
 
 
-@router.get("/tasks")
-def get_tasks():
+@router.get("/web/tasks/{task_id}/edit")
+def edit_task_page(request: Request, task_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    tasks = connection.execute("""
-        SELECT * FROM tasks
-    """).fetchall()
+    cursor.execute(
+        """
+        SELECT *
+        FROM tasks
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
+    task = cursor.fetchone()
 
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        ORDER BY title
+        """
+    )
+    deals = cursor.fetchall()
+
+    cursor.close()
     connection.close()
 
-    return [dict(task) for task in tasks]
+    return templates.TemplateResponse(
+        "edit_task.html",
+        {
+            "request": request,
+            "task": task,
+            "clients": clients,
+            "deals": deals,
+        },
+    )
 
 
-@router.get("/tasks/{task_id}")
-def get_task(task_id: int):
+@router.post("/web/tasks/{task_id}/edit")
+def update_task(
+    task_id: int,
+    client_id: int = Form(...),
+    deal_id: str = Form(""),
+    title: str = Form(...),
+    description: str = Form(""),
+    due_date: str = Form(""),
+    is_done: str = Form("0"),
+):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    task = connection.execute("""
-        SELECT * FROM tasks WHERE id = ?
-    """, (task_id,)).fetchone()
+    deal_id_value = int(deal_id) if deal_id else None
+    is_done_value = 1 if is_done == "1" else 0
 
-    connection.close()
-
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    return dict(task)
-
-
-@router.put("/tasks/{task_id}")
-def update_task(task_id: int, updated_task: Task):
-    connection = get_db_connection()
-
-    existing_task = connection.execute("""
-        SELECT * FROM tasks WHERE id = ?
-    """, (task_id,)).fetchone()
-
-    if existing_task is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (updated_task.client_id,)).fetchone()
-
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    if updated_task.deal_id is not None:
-        deal = connection.execute("""
-            SELECT * FROM deals WHERE id = ?
-        """, (updated_task.deal_id,)).fetchone()
-
-        if deal is None:
-            connection.close()
-            raise HTTPException(status_code=404, detail="Deal not found")
-
-    connection.execute("""
+    cursor.execute(
+        """
         UPDATE tasks
-        SET client_id = ?, deal_id = ?, title = ?, description = ?, due_date = ?, is_done = ?
-        WHERE id = ?
-    """, (
-        updated_task.client_id,
-        updated_task.deal_id,
-        updated_task.title,
-        updated_task.description,
-        updated_task.due_date,
-        int(updated_task.is_done),
-        task_id
-    ))
+        SET client_id = %s,
+            deal_id = %s,
+            title = %s,
+            description = %s,
+            due_date = %s,
+            is_done = %s
+        WHERE id = %s
+        """,
+        (
+            client_id,
+            deal_id_value,
+            title,
+            description,
+            due_date,
+            is_done_value,
+            task_id,
+        ),
+    )
 
     connection.commit()
 
-    updated = connection.execute("""
-        SELECT * FROM tasks WHERE id = ?
-    """, (task_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(updated)
+    return RedirectResponse(url="/web/tasks", status_code=303)
 
 
-@router.delete("/tasks/{task_id}")
+@router.post("/web/tasks/{task_id}/done")
+def mark_task_done(task_id: int):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET is_done = 1
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    return RedirectResponse(url="/web/tasks", status_code=303)
+
+
+@router.post("/web/tasks/{task_id}/delete")
 def delete_task(task_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    existing_task = connection.execute("""
-        SELECT * FROM tasks WHERE id = ?
-    """, (task_id,)).fetchone()
-
-    if existing_task is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    connection.execute("""
-        DELETE FROM tasks WHERE id = ?
-    """, (task_id,))
+    cursor.execute(
+        """
+        DELETE FROM tasks
+        WHERE id = %s
+        """,
+        (task_id,),
+    )
 
     connection.commit()
+
+    cursor.close()
     connection.close()
 
-    return {
-        "message": "Task deleted",
-        "task": dict(existing_task)
-    }
+    return RedirectResponse(url="/web/tasks", status_code=303)

@@ -1,158 +1,211 @@
-from fastapi import APIRouter, HTTPException, Depends
-from auth import require_api_login
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from database import get_db_connection
-from models import Deal
+
+router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
-router = APIRouter(
-    dependencies=[Depends(require_api_login)]
-)
-
-
-@router.post("/deals")
-def create_deal(deal: Deal):
+@router.get("/web/deals")
+def deals_page(request: Request):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (deal.client_id,)).fetchone()
+    cursor.execute(
+        """
+        SELECT deals.*, clients.name AS client_name
+        FROM deals
+        JOIN clients ON deals.client_id = clients.id
+        ORDER BY deals.id DESC
+        """
+    )
+    deals = cursor.fetchall()
 
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
 
-    cursor = connection.execute("""
+    cursor.close()
+    connection.close()
+
+    return templates.TemplateResponse(
+        "deals.html",
+        {
+            "request": request,
+            "deals": deals,
+            "clients": clients,
+        },
+    )
+
+
+@router.post("/web/deals")
+def create_deal(
+    client_id: int = Form(...),
+    title: str = Form(...),
+    amount: float = Form(0),
+    status: str = Form("new"),
+    comment: str = Form(""),
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
         INSERT INTO deals (client_id, title, amount, status, comment)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        deal.client_id,
-        deal.title,
-        deal.amount,
-        deal.status,
-        deal.comment
-    ))
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (client_id, title, amount, status, comment),
+    )
 
     connection.commit()
 
-    new_deal_id = cursor.lastrowid
-
-    new_deal = connection.execute("""
-        SELECT * FROM deals WHERE id = ?
-    """, (new_deal_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(new_deal)
+    return RedirectResponse(url="/web/deals", status_code=303)
 
 
-@router.get("/deals")
-def get_deals():
+@router.get("/web/deals/{deal_id}")
+def deal_detail_page(request: Request, deal_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    deals = connection.execute("""
-        SELECT * FROM deals
-    """).fetchall()
+    cursor.execute(
+        """
+        SELECT deals.*, clients.name AS client_name
+        FROM deals
+        JOIN clients ON deals.client_id = clients.id
+        WHERE deals.id = %s
+        """,
+        (deal_id,),
+    )
+    deal = cursor.fetchone()
 
+    cursor.execute(
+        """
+        SELECT *
+        FROM tasks
+        WHERE deal_id = %s
+        ORDER BY id DESC
+        """,
+        (deal_id,),
+    )
+    tasks = cursor.fetchall()
+
+    cursor.close()
     connection.close()
 
-    return [dict(deal) for deal in deals]
+    return templates.TemplateResponse(
+        "deal_detail.html",
+        {
+            "request": request,
+            "deal": deal,
+            "tasks": tasks,
+        },
+    )
 
 
-@router.get("/deals/status/{status}")
-def get_deals_by_status(status: str):
+@router.get("/web/deals/{deal_id}/edit")
+def edit_deal_page(request: Request, deal_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    deals = connection.execute("""
-        SELECT * FROM deals
-        WHERE status = ?
-    """, (status,)).fetchall()
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        WHERE id = %s
+        """,
+        (deal_id,),
+    )
+    deal = cursor.fetchone()
 
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        ORDER BY name
+        """
+    )
+    clients = cursor.fetchall()
+
+    cursor.close()
     connection.close()
 
-    return [dict(deal) for deal in deals]
+    return templates.TemplateResponse(
+        "edit_deal.html",
+        {
+            "request": request,
+            "deal": deal,
+            "clients": clients,
+        },
+    )
 
 
-@router.get("/deals/{deal_id}")
-def get_deal(deal_id: int):
+@router.post("/web/deals/{deal_id}/edit")
+def update_deal(
+    deal_id: int,
+    client_id: int = Form(...),
+    title: str = Form(...),
+    amount: float = Form(0),
+    status: str = Form("new"),
+    comment: str = Form(""),
+):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    deal = connection.execute("""
-        SELECT * FROM deals WHERE id = ?
-    """, (deal_id,)).fetchone()
-
-    connection.close()
-
-    if deal is None:
-        raise HTTPException(status_code=404, detail="Deal not found")
-
-    return dict(deal)
-
-
-@router.put("/deals/{deal_id}")
-def update_deal(deal_id: int, updated_deal: Deal):
-    connection = get_db_connection()
-
-    existing_deal = connection.execute("""
-        SELECT * FROM deals WHERE id = ?
-    """, (deal_id,)).fetchone()
-
-    if existing_deal is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Deal not found")
-
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (updated_deal.client_id,)).fetchone()
-
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    connection.execute("""
+    cursor.execute(
+        """
         UPDATE deals
-        SET client_id = ?, title = ?, amount = ?, status = ?, comment = ?
-        WHERE id = ?
-    """, (
-        updated_deal.client_id,
-        updated_deal.title,
-        updated_deal.amount,
-        updated_deal.status,
-        updated_deal.comment,
-        deal_id
-    ))
+        SET client_id = %s,
+            title = %s,
+            amount = %s,
+            status = %s,
+            comment = %s
+        WHERE id = %s
+        """,
+        (client_id, title, amount, status, comment, deal_id),
+    )
 
     connection.commit()
 
-    updated = connection.execute("""
-        SELECT * FROM deals WHERE id = ?
-    """, (deal_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(updated)
+    return RedirectResponse(url=f"/web/deals/{deal_id}", status_code=303)
 
 
-@router.delete("/deals/{deal_id}")
+@router.post("/web/deals/{deal_id}/delete")
 def delete_deal(deal_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    existing_deal = connection.execute("""
-        SELECT * FROM deals WHERE id = ?
-    """, (deal_id,)).fetchone()
+    cursor.execute(
+        """
+        DELETE FROM tasks
+        WHERE deal_id = %s
+        """,
+        (deal_id,),
+    )
 
-    if existing_deal is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Deal not found")
-
-    connection.execute("""
-        DELETE FROM deals WHERE id = ?
-    """, (deal_id,))
+    cursor.execute(
+        """
+        DELETE FROM deals
+        WHERE id = %s
+        """,
+        (deal_id,),
+    )
 
     connection.commit()
+
+    cursor.close()
     connection.close()
 
-    return {
-        "message": "Deal deleted",
-        "deal": dict(existing_deal)
-    }
+    return RedirectResponse(url="/web/deals", status_code=303)

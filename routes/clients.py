@@ -1,207 +1,230 @@
-from fastapi import APIRouter, HTTPException, Depends
-from auth import require_api_login
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from database import get_db_connection
-from models import Client
+
+router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
 
-router = APIRouter(
-    dependencies=[Depends(require_api_login)]
-)
-
-
-@router.post("/clients")
-def create_client(client: Client):
+@router.get("/web/clients")
+def clients_page(request: Request, search: str = ""):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    cursor = connection.execute("""
+    if search:
+        cursor.execute(
+            """
+            SELECT *
+            FROM clients
+            WHERE name ILIKE %s
+               OR phone ILIKE %s
+               OR email ILIKE %s
+               OR company ILIKE %s
+            ORDER BY id DESC
+            """,
+            (
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+            ),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT *
+            FROM clients
+            ORDER BY id DESC
+            """
+        )
+
+    clients = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    return templates.TemplateResponse(
+        "clients.html",
+        {
+            "request": request,
+            "clients": clients,
+            "search": search,
+        },
+    )
+
+
+@router.post("/web/clients")
+def create_client(
+    name: str = Form(...),
+    phone: str = Form(""),
+    email: str = Form(""),
+    company: str = Form(""),
+    comment: str = Form(""),
+):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
         INSERT INTO clients (name, phone, email, company, comment)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        client.name,
-        client.phone,
-        client.email,
-        client.company,
-        client.comment
-    ))
+        VALUES (%s, %s, %s, %s, %s)
+        """,
+        (name, phone, email, company, comment),
+    )
 
     connection.commit()
 
-    new_client_id = cursor.lastrowid
-
-    new_client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (new_client_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(new_client)
+    return RedirectResponse(url="/web/clients", status_code=303)
 
 
-@router.get("/clients")
-def get_clients():
+@router.get("/web/clients/{client_id}")
+def client_detail_page(request: Request, client_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    clients = connection.execute("""
-        SELECT * FROM clients
-    """).fetchall()
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        WHERE id = %s
+        """,
+        (client_id,),
+    )
+    client = cursor.fetchone()
 
+    cursor.execute(
+        """
+        SELECT *
+        FROM deals
+        WHERE client_id = %s
+        ORDER BY id DESC
+        """,
+        (client_id,),
+    )
+    deals = cursor.fetchall()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM tasks
+        WHERE client_id = %s
+        ORDER BY id DESC
+        """,
+        (client_id,),
+    )
+    tasks = cursor.fetchall()
+
+    cursor.close()
     connection.close()
 
-    return [dict(client) for client in clients]
+    return templates.TemplateResponse(
+        "client_detail.html",
+        {
+            "request": request,
+            "client": client,
+            "deals": deals,
+            "tasks": tasks,
+        },
+    )
 
 
-@router.get("/clients/search")
-def search_clients(query: str):
+@router.get("/web/clients/{client_id}/edit")
+def edit_client_page(request: Request, client_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    search_text = f"%{query}%"
+    cursor.execute(
+        """
+        SELECT *
+        FROM clients
+        WHERE id = %s
+        """,
+        (client_id,),
+    )
+    client = cursor.fetchone()
 
-    clients = connection.execute("""
-        SELECT * FROM clients
-        WHERE name LIKE ?
-           OR phone LIKE ?
-           OR email LIKE ?
-           OR company LIKE ?
-           OR comment LIKE ?
-    """, (
-        search_text,
-        search_text,
-        search_text,
-        search_text,
-        search_text
-    )).fetchall()
-
+    cursor.close()
     connection.close()
 
-    return [dict(client) for client in clients]
+    return templates.TemplateResponse(
+        "edit_client.html",
+        {
+            "request": request,
+            "client": client,
+        },
+    )
 
 
-@router.get("/clients/{client_id}")
-def get_client(client_id: int):
+@router.post("/web/clients/{client_id}/edit")
+def update_client(
+    client_id: int,
+    name: str = Form(...),
+    phone: str = Form(""),
+    email: str = Form(""),
+    company: str = Form(""),
+    comment: str = Form(""),
+):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
-
-    connection.close()
-
-    if client is None:
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    return dict(client)
-
-
-@router.put("/clients/{client_id}")
-def update_client(client_id: int, updated_client: Client):
-    connection = get_db_connection()
-
-    existing_client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
-
-    if existing_client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    connection.execute("""
+    cursor.execute(
+        """
         UPDATE clients
-        SET name = ?, phone = ?, email = ?, company = ?, comment = ?
-        WHERE id = ?
-    """, (
-        updated_client.name,
-        updated_client.phone,
-        updated_client.email,
-        updated_client.company,
-        updated_client.comment,
-        client_id
-    ))
+        SET name = %s,
+            phone = %s,
+            email = %s,
+            company = %s,
+            comment = %s
+        WHERE id = %s
+        """,
+        (name, phone, email, company, comment, client_id),
+    )
 
     connection.commit()
 
-    updated = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
-
+    cursor.close()
     connection.close()
 
-    return dict(updated)
+    return RedirectResponse(url=f"/web/clients/{client_id}", status_code=303)
 
 
-@router.delete("/clients/{client_id}")
+@router.post("/web/clients/{client_id}/delete")
 def delete_client(client_id: int):
     connection = get_db_connection()
+    cursor = connection.cursor()
 
-    existing_client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
+    cursor.execute(
+        """
+        DELETE FROM tasks
+        WHERE client_id = %s
+        """,
+        (client_id,),
+    )
 
-    if existing_client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
+    cursor.execute(
+        """
+        DELETE FROM deals
+        WHERE client_id = %s
+        """,
+        (client_id,),
+    )
 
-    connection.execute("""
-        DELETE FROM clients WHERE id = ?
-    """, (client_id,))
+    cursor.execute(
+        """
+        DELETE FROM clients
+        WHERE id = %s
+        """,
+        (client_id,),
+    )
 
     connection.commit()
+
+    cursor.close()
     connection.close()
 
-    return {
-        "message": "Client deleted",
-        "client": dict(existing_client)
-    }
-
-
-@router.get("/clients/{client_id}/deals")
-def get_client_with_deals(client_id: int):
-    connection = get_db_connection()
-
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
-
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    deals = connection.execute("""
-        SELECT * FROM deals WHERE client_id = ?
-    """, (client_id,)).fetchall()
-
-    connection.close()
-
-    return {
-        "client": dict(client),
-        "deals": [dict(deal) for deal in deals]
-    }
-
-
-@router.get("/clients/{client_id}/full")
-def get_full_client_card(client_id: int):
-    connection = get_db_connection()
-
-    client = connection.execute("""
-        SELECT * FROM clients WHERE id = ?
-    """, (client_id,)).fetchone()
-
-    if client is None:
-        connection.close()
-        raise HTTPException(status_code=404, detail="Client not found")
-
-    deals = connection.execute("""
-        SELECT * FROM deals WHERE client_id = ?
-    """, (client_id,)).fetchall()
-
-    tasks = connection.execute("""
-        SELECT * FROM tasks WHERE client_id = ?
-    """, (client_id,)).fetchall()
-
-    connection.close()
-
-    return {
-        "client": dict(client),
-        "deals": [dict(deal) for deal in deals],
-        "tasks": [dict(task) for task in tasks]
-    }
+    return RedirectResponse(url="/web/clients", status_code=303)
