@@ -1,19 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from auth import require_api_login
 from database import get_db_connection
 
 
-router = APIRouter(
-    dependencies=[Depends(require_api_login)]
-)
+router = APIRouter()
 
 
 @router.get("/stats")
 def get_stats():
     connection = get_db_connection()
     cursor = connection.cursor()
-
     cursor.execute("""
         SELECT COUNT(*) AS count FROM clients
     """)
