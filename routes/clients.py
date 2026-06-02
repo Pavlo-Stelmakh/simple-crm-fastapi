@@ -56,6 +56,7 @@ def clients_page(request: Request, search: str = ""):
 
 
 @router.post("/web/clients")
+@router.post("/web/clients/add")
 def create_client(
     name: str = Form(...),
     phone: str = Form(""),
